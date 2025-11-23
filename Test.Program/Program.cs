@@ -13,7 +13,9 @@ var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
     })
     .Where(t => t.User.Id == 10)
     .And(t => t.Role.Id == 1 || t.Role.Name == "a")
-    .Or(t => t.Role.Id == 1 || t.Role.Name == "a");
+    .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
+    .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
+    .Paginate(1, 10);
 
 
 var template = qb.Build();
@@ -22,3 +24,4 @@ var param = template.Parameters;
 
 
 Console.WriteLine(sql);
+Console.WriteLine(qb.Count().RawSql);

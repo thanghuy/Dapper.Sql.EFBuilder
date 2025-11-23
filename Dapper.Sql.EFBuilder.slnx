@@ -3,5 +3,6 @@
     <File Path=".gitignore" />
   </Folder>
   <Project Path="Dapper.Sql.Builder/Dapper.Sql.Builder.csproj" Id="600b0cea-ebdc-4a28-8ec3-d4e6a225c8e9" />
+  <Project Path="Dapper.Test/Dapper.Test.csproj" Id="e3fed18d-6129-44ce-9da7-2ecc1eede69a" />
   <Project Path="Test.Program/Test.Program.csproj" Id="9139a49c-3c25-44b5-a3d6-d63a17d46a04" />
 </Solution>

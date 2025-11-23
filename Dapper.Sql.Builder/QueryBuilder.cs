@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Text;
-using Dapper;
+﻿using System.Linq.Expressions;
 using Dapper.Sql.Builder.Helpers;
 
 namespace Dapper.Sql.Builder
@@ -14,6 +10,10 @@ namespace Dapper.Sql.Builder
         private readonly List<string> _joins = new();
         private readonly List<string> _selects = new();
         private readonly Dictionary<Type, string> _aliases = new();
+
+        // paging state
+        private int? _offset;
+        private int? _fetch;
 
         // FROM
         public QueryBuilder<TDto, TableMap> From<T>(Expression<Func<TableMap, T>> tableExpr, bool nolock = false)
@@ -54,6 +54,33 @@ namespace Dapper.Sql.Builder
             return this;
         }
 
+        // Pagination helpers
+        public QueryBuilder<TDto, TableMap> Paginate(int page, int pageSize)
+        {
+            if (page < 1) throw new ArgumentOutOfRangeException(nameof(page), "page must be >= 1");
+            if (pageSize < 1) throw new ArgumentOutOfRangeException(nameof(pageSize), "pageSize must be >= 1");
+
+            int offset = (page - 1) * pageSize;
+            _offset = offset;
+            _fetch = pageSize;
+
+            // ensure parameters are present in the final template Parameters
+            _builder.AddParameters(new { offset, fetch = pageSize });
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> SkipTake(int offset, int take)
+        {
+            if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
+            if (take < 1) throw new ArgumentOutOfRangeException(nameof(take));
+
+            _offset = offset;
+            _fetch = take;
+
+            _builder.AddParameters(new { offset, fetch = take });
+            return this;
+        }
+
         public QueryBuilder<TDto, TableMap> RightJoin<T>(Expression<Func<TableMap, T>> tableExpr,
                                           Expression<Func<TableMap, bool>> onExpr,
                                           bool nolock = false)
@@ -75,7 +102,7 @@ namespace Dapper.Sql.Builder
             {
                 foreach (var binding in init.Bindings.OfType<MemberAssignment>())
                 {
-                    if (binding.Expression is MemberExpression me)
+                    if (binding.Expression is MemberExpression me && me.Expression != null)
                     {
                         Type entityType = me.Expression.Type;
                         string alias = _aliases[entityType];
@@ -117,14 +144,32 @@ namespace Dapper.Sql.Builder
             string from = string.Join(", ", _from);
             string join = string.Join(" ", _joins);
 
+            string paging = _offset.HasValue && _fetch.HasValue
+                ? $"OFFSET @offset ROWS FETCH NEXT @fetch ROWS ONLY"
+                : "";
+
             return _builder.AddTemplate($@"
             SELECT {select}
             FROM {from}
             {join}
             /**where**/ /**orderby**/
+            {paging}");
+        }
+
+        public SqlBuilder.Template Count(string countExpression = "1", string alias = "Total")
+        {
+            string from = string.Join(", ", _from);
+            string join = string.Join(" ", _joins);
+
+            return _builder.AddTemplate($@"
+            SELECT COUNT({countExpression}) AS {alias}
+            FROM {from}
+            {join}
+            /**where**/
             ");
         }
 
+        #region Private Methods
         private string BuildJoin<T>(Expression<Func<TableMap, T>> tableExpr,
                                           Expression<Func<TableMap, bool>> onExpr,
                                           bool nolock = false)
@@ -184,6 +229,6 @@ namespace Dapper.Sql.Builder
                 throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}");
             }
         }
-
+        #endregion
     }
 }
