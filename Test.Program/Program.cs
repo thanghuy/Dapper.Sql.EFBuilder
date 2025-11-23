@@ -27,3 +27,16 @@ var param = template.Parameters;
 
 Console.WriteLine(sql);
 Console.WriteLine(qb.Count().RawSql);
+
+var insertBuilder = new InsertBuilder<User>
+(
+    new User
+    {
+        Id = 1,
+        Name = "John",
+        RoleId = 2
+    }
+);
+
+string insertSql = insertBuilder.BuildSql();
+Console.WriteLine(insertSql);
