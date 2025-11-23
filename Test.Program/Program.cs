@@ -15,6 +15,8 @@ var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
     .And(t => t.Role.Id == 1 || t.Role.Name == "a")
     .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
     .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
+    .OrderByAsc(t => t.User.Name)
+    .OrderByDesc(t => t.User.Name)
     .Paginate(1, 10);
 
 

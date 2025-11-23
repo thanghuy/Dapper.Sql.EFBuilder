@@ -132,8 +132,16 @@ namespace Dapper.Sql.Builder
 
         public QueryBuilder<TDto, TableMap> And(Expression<Func<TableMap, bool>> expr) => Where(expr);
 
-        public QueryBuilder<TDto, TableMap> OrderBy(string sql)
+        public QueryBuilder<TDto, TableMap> OrderByAsc<TProperty>(Expression<Func<TableMap, TProperty>> expr)
         {
+            string sql = ParseOrderExpression(expr.Body, asc: true, _aliases);
+            _builder.OrderBy(sql);
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> OrderByDesc<TProperty>(Expression<Func<TableMap, TProperty>> expr)
+        {
+            string sql = ParseOrderExpression(expr.Body, asc: false, _aliases);
             _builder.OrderBy(sql);
             return this;
         }
@@ -181,53 +189,80 @@ namespace Dapper.Sql.Builder
             return $"{tableName} {alias}{nolockSql} ON {ParseExpression(onExpr.Body, _aliases)}";
         }
 
-        // ---- Expression Parser đơn giản ----
+        // ---- Expression Parser  ----
+        private string GetBinaryOperator(ExpressionType nodeType) => nodeType switch
+        {
+            ExpressionType.Equal => "=",
+            ExpressionType.NotEqual => "<>",
+            ExpressionType.GreaterThan => ">",
+            ExpressionType.GreaterThanOrEqual => ">=",
+            ExpressionType.LessThan => "<",
+            ExpressionType.LessThanOrEqual => "<=",
+            ExpressionType.AndAlso => "AND",
+            ExpressionType.OrElse => "OR",
+            // Thêm các toán tử khác (Add, Subtract, Multiply, Divide...) nếu cần
+            _ => throw new NotSupportedException($"Unsupported binary operator: {nodeType}")
+        };
+
         private string ParseExpression(Expression expr, Dictionary<Type, string> aliases)
         {
-            if (expr is BinaryExpression be)
+            return expr switch
             {
-                string left = ParseExpression(be.Left, aliases);
-                string right = ParseExpression(be.Right, aliases);
+                BinaryExpression be => ParseBinaryExpression(be, aliases),
+                MemberExpression me => ParseMemberExpression(me, aliases),
+                ConstantExpression ce => ParseConstantExpression(ce),
+                _ => throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}")
+            };
+        }
 
-                string op = be.NodeType switch
-                {
-                    ExpressionType.Equal => "=",
-                    ExpressionType.NotEqual => "<>",
-                    ExpressionType.GreaterThan => ">",
-                    ExpressionType.GreaterThanOrEqual => ">=",
-                    ExpressionType.LessThan => "<",
-                    ExpressionType.LessThanOrEqual => "<=",
-                    ExpressionType.AndAlso => "AND",
-                    ExpressionType.OrElse => "OR",
-                    _ => throw new NotSupportedException(be.NodeType.ToString())
-                };
+        // 1. Xử lý BinaryExpression
+        private string ParseBinaryExpression(BinaryExpression be, Dictionary<Type, string> aliases)
+        {
+            string left = ParseExpression(be.Left, aliases);
+            string right = ParseExpression(be.Right, aliases);
+            string op = GetBinaryOperator(be.NodeType);
 
-                string result = $"{left} {op} {right}";
+            string result = $"{left} {op} {right}";
 
-                bool leftIsBinary = be.Left is BinaryExpression;
-                bool rightIsBinary = be.Right is BinaryExpression;
-                if (leftIsBinary || rightIsBinary)
-                    result = $"({result})";
+            if (be.Left is BinaryExpression || be.Right is BinaryExpression)
+                result = $"({result})";
 
-                return result;
-            }
-            else if (expr is MemberExpression me)
+            return result;
+        }
+
+        private string ParseMemberExpression(MemberExpression me, Dictionary<Type, string> aliases)
+        {
+            if (me.Expression == null)
             {
-                Type entityType = me.Expression!.Type;
-                string alias = _aliases[entityType];
-                string column = me.Member.Name;
-                return $"{alias}.{column}";
+                throw new NotSupportedException($"Unsupported MemberExpression: Static or null expression member '{me.Member.Name}'");
             }
-            else if (expr is ConstantExpression ce)
+
+            Type entityType = me.Expression.Type;
+            if (!aliases.TryGetValue(entityType, out string? alias))
             {
-                string paramName = "@p" + ce.Value?.GetHashCode();
-                _builder.AddParameters(new { p = ce.Value });
-                return paramName!;
+                throw new KeyNotFoundException($"Alias not found for entity type: {entityType.Name}");
             }
-            else
+
+            string column = me.Member.Name;
+            return $"{alias}.{column}";
+        }
+
+        private string ParseConstantExpression(ConstantExpression ce)
+        {
+            string paramName = "@p" + ce.Value?.GetHashCode();
+            _builder.AddParameters(new KeyValuePair<string, object?>(paramName, ce.Value));
+
+            return paramName;
+        }
+
+        private string ParseOrderExpression(Expression expr, bool asc, Dictionary<Type, string> aliases)
+        {
+            return expr switch
             {
-                throw new NotSupportedException($"Unsupported expression type: {expr.GetType().Name}");
-            }
+                MemberExpression me => $"{ParseMemberExpression(me, aliases)} {(asc ? "ASC" : "DESC")}",
+                ConstantExpression => throw new NotSupportedException("Ordering by a constant value is not supported."),
+                _ => throw new NotSupportedException($"Unsupported expression type for ORDER BY: {expr.GetType().Name}")
+            };
         }
         #endregion
     }
