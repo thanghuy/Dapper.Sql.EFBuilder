@@ -1,0 +1,23 @@
+# Build
+bin/
+obj/
+[Aa]rtifacts/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+
+# Logs
+*.log
+
+# NuGet
+packages/
+*.nupkg
+
+# Publish
+publish/
+
+# Others
+*.DS_Store
+Thumbs.db
