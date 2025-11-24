@@ -35,7 +35,7 @@ jobs:
         # validate/extract a semver-like version to avoid passing invalid strings to dotnet pack
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
+        run: | 
           set -e
           RAW="${RELEASE_TAG}"
           VERSION="${RAW#v}"
