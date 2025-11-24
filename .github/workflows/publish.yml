@@ -1,12 +1,20 @@
 ﻿name: Publish NuGet Package 📦
+
 on:
   release:
     types: [published]
 
+concurrency:
+  group: publish-nuget
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -14,16 +22,34 @@ jobs:
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x' 
+          dotnet-version: '8.x'
 
       - name: Restore dependencies
         run: dotnet restore
-        
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Create the NuGet package
-        run: dotnet pack --configuration Release --no-build --output nuget_packages -p:PackageVersion=${{ github.event.release.tag_name }}
-        
+      - name: Pack project
+        # use the release tag for PackageVersion; strip leading 'v' if present
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION=${RELEASE_TAG#v}
+          echo "Packing version $VERSION"
+          dotnet pack Dapper.Sql.Builder/Dapper.Sql.Builder.csproj --configuration Release --no-build --output nuget_packages -p:PackageVersion=$VERSION
+
       - name: Publish to NuGet.org
-        run: dotnet nuget push nuget_packages/*.nupkg --api-key ${{secrets.NUGET_API_KEY}} --source https://api.nuget.org/v3/index.json
+        if: always()
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          echo "Found packages:"
+          ls -la nuget_packages || true
+          for pkg in nuget_packages/*.nupkg; do
+            echo "Pushing $pkg"
+            dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+
+      - name: Done
+        run: echo "Publish job finished. If packages were pushed, they should appear on NuGet.org."
