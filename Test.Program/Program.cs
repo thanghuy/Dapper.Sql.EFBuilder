@@ -1,5 +1,5 @@
-﻿using Dapper.Sql.Builder;
-using Test.Program;
+﻿using Test.Program;
+using Winner.D.Sql.Builder;
 
 
 var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()

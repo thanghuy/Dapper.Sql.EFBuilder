@@ -1,7 +1,8 @@
 ﻿using System.Linq.Expressions;
-using Dapper.Sql.Builder.Helpers;
+using Dapper;
+using Winner.D.Sql.Builder.Helpers;
 
-namespace Dapper.Sql.Builder
+namespace Winner.D.Sql.Builder
 {
     public class QueryBuilder<TDto, TableMap>
     {
@@ -16,6 +17,13 @@ namespace Dapper.Sql.Builder
         private int? _fetch;
 
         // FROM
+        /// <summary>
+        /// Same select a,b,b from Table as t
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="tableExpr"></param>
+        /// <param name="nolock">Support SQL Server</param>
+        /// <returns></returns>
         public QueryBuilder<TDto, TableMap> From<T>(Expression<Func<TableMap, T>> tableExpr, bool nolock = false)
         {
             string tableName = TableNameHelper.GetTableName<T>();

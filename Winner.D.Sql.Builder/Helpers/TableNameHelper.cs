@@ -2,7 +2,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace Dapper.Sql.Builder.Helpers
+namespace Winner.D.Sql.Builder.Helpers
 {
     public static class TableNameHelper
     {

@@ -1,6 +1,7 @@
-﻿using System.Data;
+﻿using Dapper;
+using System.Data;
 
-namespace Dapper.Sql.Builder
+namespace Winner.D.Sql.Builder
 {
     public class InsertBuilder<T>
     {
