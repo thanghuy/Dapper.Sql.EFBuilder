@@ -3,6 +3,7 @@ using Winner.D.Sql.Builder;
 
 
 var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
+    .Top(100)
     .From(t => t.User, nolock: true)
     .InnerJoin(t => t.Role, t => t.Role.Id == t.User.RoleId, nolock: true)
     .Select(t => new UserRoleDto

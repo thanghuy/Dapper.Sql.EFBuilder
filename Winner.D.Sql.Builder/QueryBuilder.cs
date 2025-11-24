@@ -16,14 +16,25 @@ namespace Winner.D.Sql.Builder
         private int? _offset;
         private int? _fetch;
 
-        // FROM
         /// <summary>
-        /// Same select a,b,b from Table as t
+        ///  Top => Select TOP 10, a,b from Table as t
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="tableExpr"></param>
-        /// <param name="nolock">Support SQL Server</param>
+        /// <param name="number"></param>
         /// <returns></returns>
+        public QueryBuilder<TDto, TableMap> Top(int number)
+        {
+            _selects.Add($"TOP {number}");
+            return this;
+        }
+
+        // FROM
+            /// <summary>
+            /// Same select a,b,b from Table as t
+            /// </summary>
+            /// <typeparam name="T"></typeparam>
+            /// <param name="tableExpr"></param>
+            /// <param name="nolock">Support SQL Server</param>
+            /// <returns></returns>
         public QueryBuilder<TDto, TableMap> From<T>(Expression<Func<TableMap, T>> tableExpr, bool nolock = false)
         {
             string tableName = TableNameHelper.GetTableName<T>();
