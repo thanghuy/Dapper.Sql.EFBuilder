@@ -20,6 +20,11 @@ var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
     .OrderByDesc(t => t.User.Name)
     .Paginate(1, 10);
 
+if (1 == 1)
+{
+    qb.Where(t => t.User.IsActived == true);
+}
+
 
 var template = qb.Build();
 string sql = template.RawSql;

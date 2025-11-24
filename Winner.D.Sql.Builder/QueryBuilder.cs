@@ -12,6 +12,7 @@ namespace Winner.D.Sql.Builder
         private readonly List<string> _selects = new();
         private readonly Dictionary<Type, string> _aliases = new();
 
+        private long _paramCounter;
         // paging state
         private int? _offset;
         private int? _fetch;
@@ -268,7 +269,8 @@ namespace Winner.D.Sql.Builder
 
         private string ParseConstantExpression(ConstantExpression ce)
         {
-            string paramName = "@p" + ce.Value?.GetHashCode();
+            long id = Interlocked.Increment(ref _paramCounter);
+            string paramName = "@p" + id;
             _builder.AddParameters(new KeyValuePair<string, object?>(paramName, ce.Value));
 
             return paramName;
