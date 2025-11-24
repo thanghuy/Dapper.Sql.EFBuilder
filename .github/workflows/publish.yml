@@ -3,6 +3,13 @@ on:
   release:
     types: [published]
 
+workflow_dispatch:
+    inputs:
+      package_version:
+        description: 'Phiên bản gói NuGet (Ví dụ: 1.0.1)'
+        required: false
+        default: ''
+
 jobs:
   publish:
     runs-on: ubuntu-latest
