@@ -33,10 +33,11 @@ jobs:
       - name: Pack project
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
+
         run: |
           VERSION=${RELEASE_TAG#v}
           echo "Packing version $VERSION"
-          dotnet pack --configuration Release --no-build --output nuget_packages -p:PackageVersion=${{ github.event.release.tag_name }}
+          dotnet pack Dapper.Sql.Builder/Dapper.Sql.Builder.csproj --configuration Release --output nuget_packages -p:PackageVersion=$VERSION
 
       - name: Publish to NuGet.org
         if: always()
