@@ -32,10 +32,29 @@ jobs:
 
       - name: Pack project
         # use the release tag for PackageVersion; strip leading 'v' if present
+        # validate/extract a semver-like version to avoid passing invalid strings to dotnet pack
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION=${RELEASE_TAG#v}
+          set -e
+          RAW="${RELEASE_TAG}"
+          VERSION="${RAW#v}"
+          echo "Raw release tag: '$RAW' -> initial version: '$VERSION'"
+
+          # Quick validation: allow patterns like 1, 1.2, 1.2.3, and optional pre-release/metadata (e.g. -beta.1)
+          if ! echo "$VERSION" | grep -E -q '^[0-9]+(\.[0-9]+){0,2}([-.][A-Za-z0-9\-.]+)?$'; then
+            echo "Release tag does not look like a valid numeric version. Attempting to extract a version substring..."
+            EXTRACT=$(echo "$RAW" | grep -oE '[0-9]+(\.[0-9]+){1,}([-.][A-Za-z0-9\-.]+)?' || true)
+            if [ -n "$EXTRACT" ]; then
+              VERSION="$EXTRACT"
+              echo "Extracted version: '$VERSION'"
+            else
+              echo "ERROR: Cannot determine a valid PackageVersion from release tag '$RAW'."
+              echo "Please create a release with a tag like 'v1.2.3' or '1.2.3' that can be used as the package version."
+              exit 1
+            fi
+          fi
+
           echo "Packing version $VERSION"
           dotnet pack Dapper.Sql.Builder/Dapper.Sql.Builder.csproj --configuration Release --no-build --output nuget_packages -p:PackageVersion=$VERSION
 
