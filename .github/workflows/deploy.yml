@@ -1,11 +1,11 @@
-name: Deploy Service
+name: Test Deploy
 
 on:
   workflow_dispatch:
     inputs:
       service:
         type: choice
-        description: "Chọn service cần deploy"
+        description: "Chọn service để test deploy"
         required: true
         options:
           - service-a
@@ -15,33 +15,18 @@ on:
           - service-e
 
 jobs:
-  deploy:
+  test-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Show selected service
-        run: echo "Deploying: ${{ github.event.inputs.service }}"
+        run: echo "Bạn đã chọn deploy: ${{ github.event.inputs.service }}"
 
-      - name: Deploy service
+      - name: Run test deploy
         run: |
-          case "${{ github.event.inputs.service }}" in
-            service-a)
-              echo "Running deploy for service A"
-              # ./service-a/deploy.sh
-              ;;
-            service-b)
-              echo "Running deploy for service B"
-              # ./service-b/deploy.sh
-              ;;
-            service-c)
-              echo "Running deploy for service C"
-              ;;
-            service-d)
-              echo "Running deploy for service D"
-              ;;
-            service-e)
-              echo "Running deploy for service E"
-              ;;
-          esac
+          echo "=== Running test deploy ==="
+          echo "Deploy service: ${{ github.event.inputs.service }}"
+          echo "--- DONE ---"
