@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Show selected service
-        run: echo "Bạn đã chọn deploy: ${{ github.event.inputs.service }}"
+        run: echo "Selected service: ${{ github.event.inputs.service }}"
 
       - name: Run test deploy
         run: |
