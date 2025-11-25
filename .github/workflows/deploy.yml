@@ -1,0 +1,47 @@
+name: Deploy Service
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        type: choice
+        description: "Chọn service cần deploy"
+        required: true
+        options:
+          - service-a
+          - service-b
+          - service-c
+          - service-d
+          - service-e
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Show selected service
+        run: echo "Deploying: ${{ github.event.inputs.service }}"
+
+      - name: Deploy service
+        run: |
+          case "${{ github.event.inputs.service }}" in
+            service-a)
+              echo "Running deploy for service A"
+              # ./service-a/deploy.sh
+              ;;
+            service-b)
+              echo "Running deploy for service B"
+              # ./service-b/deploy.sh
+              ;;
+            service-c)
+              echo "Running deploy for service C"
+              ;;
+            service-d)
+              echo "Running deploy for service D"
+              ;;
+            service-e)
+              echo "Running deploy for service E"
+              ;;
+          esac
