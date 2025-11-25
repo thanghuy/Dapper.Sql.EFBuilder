@@ -22,7 +22,7 @@ var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
     .NotIn(t => t.User.Id, new[] { 6, 7, 8 })
     .Like(t => t.User.Name, "%John%")
     .FullTextSearch(t => t.User.Name, "developer", WD_QueryFullTextType.Freetext)
-    .FullTextSearch(t => t.Role.Name, "developer", WD_QueryFullTextType.Contains)
+    .FullTextSearch(t => new { t.Role.Name, t.Role.Id }, "developer", WD_QueryFullTextType.Contains)
     .OrderByAsc(t => t.User.Name)
     .OrderByDesc(t => t.User.Name)
     .Paginate(1, 10);
@@ -41,15 +41,17 @@ var param = template.Parameters;
 Console.WriteLine(sql);
 Console.WriteLine(qb.Count().RawSql);
 
-var insertBuilder = new InsertBuilder<User>
-(
-    new User
-    {
-        Id = 1,
-        Name = "John",
-        RoleId = 2
-    }
-);
+var list = new List<User>
+{
+    new User { Id = 1, Name = "Alice", RoleId = 1, IsActived = true },
+    new User { Id = 2, Name = "Bob", RoleId = 2, IsActived = false }
+};
 
-string insertSql = insertBuilder.BuildSql();
-Console.WriteLine(insertSql);
+var insertBuilder = new InsertBuilder<User, DBSocialMapTable>(list);
+
+//var insertSql = insertBuilder.BuildSql();
+//string sql1 = insertSql.RawSql;
+//var param2 = insertSql.Parameters;
+//Console.WriteLine(sql1);
+Console.WriteLine(insertBuilder.FindOneInsert("Id = @Id", new { Id = 1 }).RawSql);
+//Console.WriteLine(insertBuilder.Upsert("Id = 1").RawSql);

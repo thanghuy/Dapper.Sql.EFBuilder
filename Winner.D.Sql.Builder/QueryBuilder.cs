@@ -291,10 +291,42 @@ namespace Winner.D.Sql.Builder
         #region Private Methods
         private string GetColumnSqlFromExpression(Expression expr, Dictionary<Type, string> aliases)
         {
+            // Single member: x => x.Entity.Property or x => ((object)x.Entity.Property)
             if (expr is MemberExpression me) return ParseMemberExpression(me, aliases);
             if (expr is UnaryExpression ue && ue.Operand is MemberExpression me2) return ParseMemberExpression(me2, aliases);
 
-            throw new NotSupportedException("Expression must be a member access (e.g. x => x.Entity.Property).");
+            // Anonymous object: x => new { x.A, x.B }
+            if (expr is NewExpression ne)
+            {
+                var cols = ne.Arguments.Select(arg =>
+                {
+                    if (arg is MemberExpression ame) return ParseMemberExpression(ame, aliases);
+                    if (arg is UnaryExpression aue && aue.Operand is MemberExpression ame2) return ParseMemberExpression(ame2, aliases);
+                    throw new NotSupportedException("Unsupported expression inside anonymous object. Use simple member accesses.");
+                }).ToList();
+
+                if (cols.Count == 0) throw new NotSupportedException("No columns found in expression.");
+                if (cols.Count == 1) return cols[0];
+                return "(" + string.Join(", ", cols) + ")";
+            }
+
+            // MemberInitExpression: x => new DTO { Prop1 = x.A, Prop2 = x.B }
+            if (expr is MemberInitExpression mi)
+            {
+                var cols = mi.Bindings.OfType<MemberAssignment>().Select(binding =>
+                {
+                    var bexp = binding.Expression;
+                    if (bexp is MemberExpression bme) return ParseMemberExpression(bme, aliases);
+                    if (bexp is UnaryExpression bue && bue.Operand is MemberExpression bme2) return ParseMemberExpression(bme2, aliases);
+                    throw new NotSupportedException("Unsupported MemberInit expression. Use simple member accesses.");
+                }).ToList();
+
+                if (cols.Count == 0) throw new NotSupportedException("No columns found in member init expression.");
+                if (cols.Count == 1) return cols[0];
+                return "(" + string.Join(", ", cols) + ")";
+            }
+
+            throw new NotSupportedException("Expression must be a member access or an anonymous/new object with member accesses (e.g. x => x.Entity.Prop OR x => new { x.Prop1, x.Prop2 }).");
         }
 
         private string FormatValuesForSql<TValue>(IEnumerable<TValue> values)
