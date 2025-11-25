@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        type: choice
         description: "Chọn service để test deploy"
         required: true
+        type: choice
         options:
           - service-a
           - service-b
