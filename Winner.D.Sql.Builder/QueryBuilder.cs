@@ -1,5 +1,6 @@
-﻿using System.Linq.Expressions;
-using Dapper;
+﻿using Dapper;
+using System.Linq.Expressions;
+using Winner.D.Sql.Builder.Enum;
 using Winner.D.Sql.Builder.Helpers;
 
 namespace Winner.D.Sql.Builder
@@ -10,6 +11,7 @@ namespace Winner.D.Sql.Builder
         private readonly List<string> _from = new();
         private readonly List<string> _joins = new();
         private readonly List<string> _selects = new();
+        private readonly List<string> _orBuilder = new();
         private readonly Dictionary<Type, string> _aliases = new();
 
         private long _paramCounter;
@@ -146,7 +148,95 @@ namespace Winner.D.Sql.Builder
         public QueryBuilder<TDto, TableMap> Or(Expression<Func<TableMap, bool>> expr)
         {
             string sql = ParseExpression(expr.Body, _aliases);
-            _builder.OrWhere(sql);
+
+            _orBuilder.Add($"OR {sql}");
+            return this;
+        }
+
+        private void WhereIn<TValue>(Expression<Func<TableMap, TValue>> expr, IEnumerable<TValue> values, WD_QueryInType queryInType)
+        {
+            if (values == null || !values.Any()) return;
+
+            string column = GetColumnSqlFromExpression(expr.Body, _aliases);
+            string valueList = FormatValuesForSql(values);
+            string type = queryInType == WD_QueryInType.NOT_IN ? "NOT IN" : "IN";
+            if (!string.IsNullOrEmpty(column) && !string.IsNullOrEmpty(valueList))
+            {
+                string sql = $"{column} {type} ({valueList})";
+                _builder.Where(sql);
+            }
+
+            return;
+        }
+
+        public QueryBuilder<TDto, TableMap> In<TValue>(Expression<Func<TableMap, TValue>> expr, IEnumerable<TValue> values)
+        {
+            WhereIn(expr, values, WD_QueryInType.IN);
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> NotIn<TValue>(Expression<Func<TableMap, TValue>> expr, IEnumerable<TValue> values)
+        {
+            WhereIn(expr, values, WD_QueryInType.NOT_IN);
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> Like<TValue>(Expression<Func<TableMap, TValue>> expr, 
+            string pattern, bool caseInsensitive = false)
+        {
+            if (string.IsNullOrEmpty(pattern)) return this;
+
+            // If user didn't provide SQL wildcards, treat as contains
+            if (!pattern.Contains("%") && !pattern.Contains("*"))
+            {
+                pattern = $"%{pattern}%";
+            }
+            pattern = pattern.Replace('*', '%');
+
+            string column = GetColumnSqlFromExpression(expr.Body, _aliases);
+            long id = Interlocked.Increment(ref _paramCounter);
+            string paramName = "@p" + id;
+            _builder.AddParameters(new KeyValuePair<string, object?>(paramName, pattern));
+
+            string sql = caseInsensitive
+                ? $"LOWER({column}) LIKE LOWER({paramName})"
+                : $"{column} LIKE {paramName}";
+
+            _builder.Where(sql);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a full-text search predicate. Uses CONTAINS by default; set freeText = true to use FREETEXT.
+        /// Requires full-text index configured on the target column in SQL Server.
+        /// </summary>
+        public QueryBuilder<TDto, TableMap> FullTextSearch<TValue>(Expression<Func<TableMap, TValue>> expr, 
+            string searchTerm, WD_QueryFullTextType queryFullTextType)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm)) return this;
+
+            string column = GetColumnSqlFromExpression(expr.Body, _aliases);
+            long id = Interlocked.Increment(ref _paramCounter);
+            string paramName = "@p" + id;
+            _builder.AddParameters(new KeyValuePair<string, object?>(paramName, searchTerm));
+
+            string sql = queryFullTextType == WD_QueryFullTextType.Freetext
+                ? $"FREETEXT({column}, {paramName})"
+                : $"CONTAINS({column}, {paramName})";
+
+            _builder.Where(sql);
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> CustomAndQueryString(string sql)
+        {
+            _builder.Where(sql);
+            return this;
+        }
+
+        public QueryBuilder<TDto, TableMap> CustomOrQueryString(string sql)
+        {
+            _orBuilder.Add($"OR {sql}");           
             return this;
         }
 
@@ -171,6 +261,7 @@ namespace Winner.D.Sql.Builder
             string select = _selects.Any() ? string.Join(", ", _selects) : "*";
             string from = string.Join(", ", _from);
             string join = string.Join(" ", _joins);
+            string or = string.Join(" ", _orBuilder);
 
             string paging = _offset.HasValue && _fetch.HasValue
                 ? $"OFFSET @offset ROWS FETCH NEXT @fetch ROWS ONLY"
@@ -180,7 +271,7 @@ namespace Winner.D.Sql.Builder
             SELECT {select}
             FROM {from}
             {join}
-            /**where**/ /**orderby**/
+            /**where**/ {or} /**orderby**/
             {paging}");
         }
 
@@ -198,6 +289,28 @@ namespace Winner.D.Sql.Builder
         }
 
         #region Private Methods
+        private string GetColumnSqlFromExpression(Expression expr, Dictionary<Type, string> aliases)
+        {
+            if (expr is MemberExpression me) return ParseMemberExpression(me, aliases);
+            if (expr is UnaryExpression ue && ue.Operand is MemberExpression me2) return ParseMemberExpression(me2, aliases);
+
+            throw new NotSupportedException("Expression must be a member access (e.g. x => x.Entity.Property).");
+        }
+
+        private string FormatValuesForSql<TValue>(IEnumerable<TValue> values)
+        {
+            if (values == null) return string.Empty;
+            var list = new List<string>();
+            foreach (var v in values)
+            {
+                long id = Interlocked.Increment(ref _paramCounter);
+                string paramName = "@p" + id;
+                _builder.AddParameters(new KeyValuePair<string, object?>(paramName, v));
+                list.Add(paramName);
+            }
+            return string.Join(", ", list);
+        }
+
         private string BuildJoin<T>(Expression<Func<TableMap, T>> tableExpr,
                                           Expression<Func<TableMap, bool>> onExpr,
                                           bool nolock = false)

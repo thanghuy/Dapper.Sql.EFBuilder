@@ -1,5 +1,6 @@
 ﻿using Test.Program;
 using Winner.D.Sql.Builder;
+using Winner.D.Sql.Builder.Enum;
 
 
 var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
@@ -16,6 +17,12 @@ var qb = new QueryBuilder<UserRoleDto, DBSocialMapTable>()
     .And(t => t.Role.Id == 1 || t.Role.Name == "a")
     .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
     .Or(t => t.Role.Id == 1 || t.Role.Name == "a")
+    .In(t => t.User.Id, new[] { 1, 2, 3, 4, 5 })
+    .In(t => t.Role.Name, new[] { "admin", "user" })
+    .NotIn(t => t.User.Id, new[] { 6, 7, 8 })
+    .Like(t => t.User.Name, "%John%")
+    .FullTextSearch(t => t.User.Name, "developer", WD_QueryFullTextType.Freetext)
+    .FullTextSearch(t => t.Role.Name, "developer", WD_QueryFullTextType.Contains)
     .OrderByAsc(t => t.User.Name)
     .OrderByDesc(t => t.User.Name)
     .Paginate(1, 10);
